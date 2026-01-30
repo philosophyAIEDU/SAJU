@@ -108,13 +108,15 @@ export const createChatSession = (initialContext: string): Chat => {
     2. 결과에 없는 내용은 "사주 원국에는 구체적으로 나와있지 않지만..."과 같이 전제하고 일반적인 명리학 지식으로 답변하세요.
     3. 항상 희망적이고 긍정적인 방향으로 조언하세요.
     4. 말투는 정중하고 부드러운 경어체를 사용하세요.
+    5. 사용자의 고민을 공감해주고, 실질적인 해결책을 사주풀이와 연결하여 제시하세요.
   `;
 
-  // Use Gemini 3 Pro for high quality chat interactions
+  // Use Gemini 3 Pro for high quality chat interactions with a small thinking budget for reasoning
   return ai.chats.create({
     model: 'gemini-3-pro-preview',
     config: {
       systemInstruction: systemInstruction,
+      thinkingConfig: { thinkingBudget: 512 }
     },
   });
 };
