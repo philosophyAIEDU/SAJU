@@ -27,7 +27,7 @@ export const createStructurePrompt = (serviceType: ServiceType, inputData: UserI
     다음 항목을 포함하는 사주 구조 분석을 제공해주세요:
     
     1. 사주팔자 도출 (년주, 월주, 일주, 시주)
-    2. 일간(日干) 분석 - 본인의 핵심 성향
+    2. 일간(日干) 분석 - 사용자가 오행(목,화,토,금,수) 중 무엇에 속하며, 어떤 자연물(예: 태양, 산, 바다)에 비유되는지 상세 설명
     3. 각 기둥별 상세 분석 (년주, 월주, 일주, 시주)
     4. 사주 구조의 전체적 특징
     `;
@@ -48,7 +48,7 @@ export const createStructurePrompt = (serviceType: ServiceType, inputData: UserI
     
     다음 항목을 포함하는 사주 구조 분석을 제공해주세요:
     1. 각 사람의 사주팔자 도출 (년주, 월주, 일주, 시주)
-    2. 각 사람의 일간(日干) 특성 분석
+    2. 각 사람의 일간(日干) 분석 (오행 및 자연물 비유)
     3. 두 사람의 일간 비교
     4. 사주 구조상 눈에 띄는 특징
     `;
@@ -63,7 +63,7 @@ export const createStructurePrompt = (serviceType: ServiceType, inputData: UserI
     - 분석 대상 연도: ${inputData.targetYear}년
     
     다음 항목을 포함하는 분석을 제공해주세요:
-    1. 본인의 사주팔자 도출
+    1. 본인의 사주팔자 도출 및 일간(타고난 기운) 분석
     2. ${inputData.targetYear}년의 년운(年運) 천간지지
     3. 현재 대운(大運) 파악
     4. 사주원국과 년운의 구조적 관계
@@ -80,7 +80,7 @@ export const createStructurePrompt = (serviceType: ServiceType, inputData: UserI
     - 관심 분야: ${inputData.interests}
     
     다음 항목을 포함하는 분석을 제공해주세요:
-    1. 사주팔자 도출
+    1. 사주팔자 도출 및 일간(타고난 기운) 분석
     2. 일간의 특성과 적성 연관성
     3. 각 기둥에 나타난 직업적 성향
     4. 사주 구조상 강점과 약점
@@ -99,8 +99,8 @@ export const createStructurePrompt = (serviceType: ServiceType, inputData: UserI
   
   분석 결과에 다음 내용을 반드시 포함해 주세요:
   1. 사주팔자 8글자 정확히 도출 (년주, 월주, 일주, 시주)
-  2. 각 기둥별 천간과 지지의 의미 설명
-  3. 일간(일주의 천간)을 중심으로 한 기본 성향 분석
+  2. 일간(일주의 천간)을 기준으로, 사용자가 목/화/토/금/수 중 어떤 기운을 타고났는지 명확히 명시
+  3. 각 기둥별 천간과 지지의 의미 설명
   `;
 };
 
@@ -189,9 +189,17 @@ const expertIntroCoach = `
 export const createCoachPrompt = (serviceType: ServiceType, inputData: UserInput, previousAnalysis: string): string => {
   let specificPrompt = '';
 
+  const commonIntro = `
+  [필수] 분석 결과의 가장 첫 부분에는 반드시 '사용자의 타고난 기운(일간)'에 대한 설명을 배치해주세요.
+  예: "당신은 오행 중 '화(Fire)'의 기운, 그 중에서도 어둠을 밝히는 '촛불(정화)'과 같은 기운을 타고났습니다."
+  이처럼 사용자가 자신이 목/화/토/금/수 중 어디에 속하는지 명확하고 친근하게 이해할 수 있도록 서두를 작성해주세요.
+  `;
+
   if (serviceType === ServiceType.BASIC) {
     specificPrompt = `
-    종합적인 사주 해석과 인생 조언을 제공해주세요:
+    ${commonIntro}
+
+    그 후 다음 항목들을 포함하여 종합적인 사주 해석을 진행해주세요:
     1. 사주팔자 종합 요약 (3줄 요약, 삶의 테마)
     2. 성격 및 성향 종합 분석 (장단점)
     3. 인생 영역별 종합 운세 (직업, 재물, 애정, 가정, 건강)
@@ -200,7 +208,9 @@ export const createCoachPrompt = (serviceType: ServiceType, inputData: UserInput
     `;
   } else if (serviceType === ServiceType.COMPATIBILITY) {
     specificPrompt = `
-    종합적인 궁합 해석과 관계 조언을 제공해주세요:
+    ${commonIntro} (두 사람 모두에 대해 언급해주세요)
+
+    그 후 종합적인 궁합 해석과 관계 조언을 제공해주세요:
     1. 궁합 종합 요약 (점수, 핵심 특징)
     2. 영역별 궁합 분석 (애정, 성격, 재물, 가정)
     3. 관계의 장점과 주의점
@@ -208,7 +218,9 @@ export const createCoachPrompt = (serviceType: ServiceType, inputData: UserInput
     `;
   } else if (serviceType === ServiceType.FORTUNE) {
     specificPrompt = `
-    ${inputData.targetYear}년 종합 운세와 실천 조언을 제공해주세요:
+    ${commonIntro}
+
+    그 후 ${inputData.targetYear}년 종합 운세와 실천 조언을 제공해주세요:
     1. ${inputData.targetYear}년 운세 종합 요약 (키워드, 점수)
     2. 영역별 운세 (직업, 재물, 애정, 건강, 학업)
     3. 월별/계절별 운세 흐름
@@ -216,7 +228,9 @@ export const createCoachPrompt = (serviceType: ServiceType, inputData: UserInput
     `;
   } else if (serviceType === ServiceType.CAREER) {
     specificPrompt = `
-    적성 및 진로에 대한 종합 분석과 조언을 제공해주세요:
+    ${commonIntro}
+
+    그 후 적성 및 진로에 대한 종합 분석과 조언을 제공해주세요:
     1. 적성 종합 요약 (핵심 역량)
     2. 오행별 맞춤 직업 추천 (구체적 직종 10가지)
     3. 직업 스타일 분석 (리더/팔로워, 창업/취업)
