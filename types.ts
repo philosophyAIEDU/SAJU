@@ -40,3 +40,8 @@ export interface AnalysisResult {
   step2: string; // Elements
   final: string; // Final Result
 }
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}

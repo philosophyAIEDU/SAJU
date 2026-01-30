@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { ServiceType, UserInput, WorkflowStep } from './types';
+import React, { useState, useRef } from 'react';
+import { Chat } from "@google/genai";
+import { ServiceType, UserInput, WorkflowStep, ChatMessage } from './types';
 import InputForm from './components/InputForm';
 import ProgressSteps from './components/ProgressSteps';
 import ResultDisplay from './components/ResultDisplay';
-import { analyzeStructure, analyzeElements, finalizeFortune } from './services/geminiService';
+import ChatInterface from './components/ChatInterface';
+import { analyzeStructure, analyzeElements, finalizeFortune, createChatSession, sendChatMessage } from './services/geminiService';
 
 // Icons
 const IconYinYang = () => (
@@ -35,6 +37,11 @@ const App: React.FC = () => {
     { id: 3, name: '종합 해석', expertName: '박운명 코치', description: '최종 운세 조언', status: 'pending' },
   ]);
 
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatSessionRef = useRef<Chat | null>(null);
+
   const updateStepStatus = (id: number, status: 'pending' | 'loading' | 'completed') => {
     setSteps(prev => prev.map(step => step.id === id ? { ...step, status } : step));
   };
@@ -44,6 +51,8 @@ const App: React.FC = () => {
     setFinalResult('');
     setError(null);
     setSteps(steps.map(s => ({ ...s, status: 'pending' })));
+    setChatMessages([]);
+    chatSessionRef.current = null;
   };
 
   const startAnalysis = async () => {
@@ -55,6 +64,8 @@ const App: React.FC = () => {
     setIsLoading(true);
     setFinalResult('');
     setError(null);
+    setChatMessages([]);
+    chatSessionRef.current = null;
     
     // Reset steps
     setSteps(prev => prev.map(s => ({...s, status: 'pending'})));
@@ -72,10 +83,16 @@ const App: React.FC = () => {
 
       // Step 3: Coach
       updateStepStatus(3, 'loading');
-      const finalResultText = await finalizeFortune(currentService, inputData, `${structureResult}\n\n${elementResult}`);
+      const fullContext = `${structureResult}\n\n${elementResult}`;
+      const finalResultText = await finalizeFortune(currentService, inputData, fullContext);
       updateStepStatus(3, 'completed');
 
       setFinalResult(finalResultText);
+
+      // Initialize Chat Session with full context including final result
+      chatSessionRef.current = createChatSession(
+        `=== 구조/오행 분석 ===\n${fullContext}\n\n=== 최종 종합 분석 ===\n${finalResultText}`
+      );
 
     } catch (err: any) {
       console.error(err);
@@ -83,6 +100,23 @@ const App: React.FC = () => {
       setIsLoading(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (text: string) => {
+    if (!chatSessionRef.current) return;
+
+    // Optimistic UI update
+    setChatMessages(prev => [...prev, { role: 'user', text }]);
+    setIsChatLoading(true);
+
+    try {
+      const response = await sendChatMessage(chatSessionRef.current, text);
+      setChatMessages(prev => [...prev, { role: 'model', text: response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'model', text: "죄송합니다. 오류가 발생하여 답변을 드릴 수 없습니다." }]);
+    } finally {
+      setIsChatLoading(false);
     }
   };
 
@@ -97,7 +131,7 @@ const App: React.FC = () => {
              </div>
              <div>
                <h1 className="text-2xl font-serif font-bold tracking-wide">AI 사주팔자 분석 팀</h1>
-               <p className="text-xs text-stone-400 font-light">3명의 AI 전문가가 분석하는 당신의 운명</p>
+               <p className="text-xs text-stone-400 font-light">Gemini Pro 3가 분석하는 당신의 운명</p>
              </div>
           </div>
         </div>
@@ -165,6 +199,15 @@ const App: React.FC = () => {
 
           {/* Final Result */}
           <ResultDisplay finalResult={finalResult} />
+
+          {/* Chat Interface (Visible only when result is ready) */}
+          {finalResult && (
+            <ChatInterface 
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              isLoading={isChatLoading}
+            />
+          )}
 
         </div>
       </main>
