@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Chat } from "@google/genai";
 import { ServiceType, UserInput, WorkflowStep, ChatMessage } from './types';
 import InputForm from './components/InputForm';
@@ -6,6 +6,9 @@ import ProgressSteps from './components/ProgressSteps';
 import ResultDisplay from './components/ResultDisplay';
 import ChatInterface from './components/ChatInterface';
 import { analyzeStructure, analyzeElements, finalizeFortune, createChatSession, sendChatMessage } from './services/geminiService';
+
+// LocalStorage key for API key
+const API_KEY_STORAGE_KEY = 'saju_gemini_api_key';
 
 // Icons
 const IconYinYang = () => (
@@ -16,7 +19,18 @@ const IconYinYang = () => (
   </svg>
 );
 
+const IconKey = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+  </svg>
+);
+
 const App: React.FC = () => {
+  // API Key State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isApiKeySet, setIsApiKeySet] = useState(false);
+
   const [currentService, setCurrentService] = useState<ServiceType>(ServiceType.BASIC);
   const [inputData, setInputData] = useState<UserInput>({
     birthDate: '',
@@ -42,6 +56,29 @@ const App: React.FC = () => {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatSessionRef = useRef<Chat | null>(null);
 
+  // Load API key from localStorage on mount
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+      setIsApiKeySet(true);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    if (apiKey.trim()) {
+      localStorage.setItem(API_KEY_STORAGE_KEY, apiKey.trim());
+      setIsApiKeySet(true);
+      setError(null);
+    }
+  };
+
+  const handleClearApiKey = () => {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    setApiKey('');
+    setIsApiKeySet(false);
+  };
+
   const updateStepStatus = (id: number, status: 'pending' | 'loading' | 'completed') => {
     setSteps(prev => prev.map(step => step.id === id ? { ...step, status } : step));
   };
@@ -56,9 +93,9 @@ const App: React.FC = () => {
   };
 
   const startAnalysis = async () => {
-    if (!process.env.API_KEY) {
-        setError("API Key가 설정되지 않았습니다. 환경 변수를 확인해주세요.");
-        return;
+    if (!apiKey || !isApiKeySet) {
+      setError("API Key를 먼저 입력해주세요.");
+      return;
     }
 
     setIsLoading(true);
@@ -66,36 +103,36 @@ const App: React.FC = () => {
     setError(null);
     setChatMessages([]);
     chatSessionRef.current = null;
-    
+
     // Reset steps
     setSteps(prev => prev.map(s => ({...s, status: 'pending'})));
 
     try {
       // Step 1: Structure
       updateStepStatus(1, 'loading');
-      const structureResult = await analyzeStructure(currentService, inputData);
+      const structureResult = await analyzeStructure(apiKey, currentService, inputData);
       updateStepStatus(1, 'completed');
 
       // Step 2: Elements
       updateStepStatus(2, 'loading');
-      const elementResult = await analyzeElements(currentService, inputData, structureResult);
+      const elementResult = await analyzeElements(apiKey, currentService, inputData, structureResult);
       updateStepStatus(2, 'completed');
 
       // Step 3: Coach
       updateStepStatus(3, 'loading');
       const fullContext = `${structureResult}\n\n${elementResult}`;
-      const finalResultText = await finalizeFortune(currentService, inputData, fullContext);
+      const finalResultText = await finalizeFortune(apiKey, currentService, inputData, fullContext);
       updateStepStatus(3, 'completed');
 
       setFinalResult(finalResultText);
 
       // Initialize Chat Session with full context including final result
       chatSessionRef.current = createChatSession(
+        apiKey,
         `=== 구조/오행 분석 ===\n${fullContext}\n\n=== 최종 종합 분석 ===\n${finalResultText}`
       );
 
     } catch (err: any) {
-      console.error(err);
       setError(err.message || "분석 중 알 수 없는 오류가 발생했습니다.");
       setIsLoading(false);
     } finally {
@@ -143,9 +180,92 @@ const App: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border border-stone-200">
            <h2 className="text-lg font-bold text-stone-800 mb-2 font-serif">환영합니다.</h2>
            <p className="text-stone-600 leading-relaxed">
-             본 서비스는 <strong>김명리 구조 전문가</strong>, <strong>이오행 오행 전문가</strong>, <strong>박운명 종합 코치</strong>가 
+             본 서비스는 <strong>김명리 구조 전문가</strong>, <strong>이오행 오행 전문가</strong>, <strong>박운명 종합 코치</strong>가
              순차적으로 협업하여 깊이 있는 사주 분석을 제공합니다.
            </p>
+        </div>
+
+        {/* API Key Input Section */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border border-stone-200">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="text-amber-600">
+              <IconKey />
+            </div>
+            <h3 className="text-lg font-bold text-stone-800 font-serif">API Key 설정</h3>
+            {isApiKeySet && (
+              <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                설정됨
+              </span>
+            )}
+          </div>
+
+          {!isApiKeySet ? (
+            <div className="space-y-4">
+              <p className="text-sm text-stone-500">
+                서비스를 이용하려면 Google Gemini API Key가 필요합니다.
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 text-amber-600 hover:text-amber-700 underline"
+                >
+                  API Key 발급받기
+                </a>
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Gemini API Key를 입력하세요"
+                    className="w-full px-4 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  >
+                    {showApiKey ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <button
+                  onClick={handleSaveApiKey}
+                  disabled={!apiKey.trim()}
+                  className="px-6 py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  저장
+                </button>
+              </div>
+              <p className="text-xs text-stone-400">
+                API Key는 브라우저에 안전하게 저장되며, 서버로 전송되지 않습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-stone-600 text-sm">API Key: </span>
+                <code className="px-2 py-1 bg-stone-100 text-stone-600 rounded text-sm">
+                  {apiKey.slice(0, 8)}...{apiKey.slice(-4)}
+                </code>
+              </div>
+              <button
+                onClick={handleClearApiKey}
+                className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                삭제
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
