@@ -2,9 +2,10 @@ import React from 'react';
 
 interface ResultDisplayProps {
   finalResult: string;
+  onScrollToChat?: () => void;
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ finalResult }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ finalResult, onScrollToChat }) => {
   if (!finalResult) return null;
 
   return (
@@ -53,9 +54,37 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ finalResult }) => {
         </div>
 
         <div className="bg-stone-50 p-4 border-t border-stone-100 text-center text-stone-500 text-sm">
-           ⚠️ 본 서비스는 AI 분석 결과이며, 재미와 참고용으로만 활용해주세요.
+           본 서비스는 AI 분석 결과이며, 재미와 참고용으로만 활용해주세요.
         </div>
       </div>
+
+      {/* 추가 질문 안내 섹션 */}
+      {onScrollToChat && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200 shadow-md">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-amber-700 flex items-center justify-center text-2xl border-2 border-amber-600 shadow-md">
+                🧙‍♂️
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-lg text-amber-900">박운명 코치에게 추가 질문하기</h3>
+                <p className="text-sm text-amber-700">
+                  분석 결과에 대해 더 궁금한 점이 있으신가요? 자유롭게 질문해보세요!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onScrollToChat}
+              className="flex items-center gap-2 px-6 py-3 bg-amber-700 text-white font-bold rounded-xl hover:bg-amber-800 transition-colors shadow-md whitespace-nowrap"
+            >
+              <span>대화 시작하기</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
