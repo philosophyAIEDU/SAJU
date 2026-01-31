@@ -55,6 +55,12 @@ const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatSessionRef = useRef<Chat | null>(null);
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+
+  // 채팅 섹션으로 스크롤
+  const scrollToChat = () => {
+    chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Load API key from localStorage on mount
   useEffect(() => {
@@ -318,15 +324,21 @@ const App: React.FC = () => {
           )}
 
           {/* Final Result */}
-          <ResultDisplay finalResult={finalResult} />
+          <ResultDisplay
+            finalResult={finalResult}
+            onScrollToChat={finalResult ? scrollToChat : undefined}
+          />
 
           {/* Chat Interface (Visible only when result is ready) */}
           {finalResult && (
-            <ChatInterface 
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              isLoading={isChatLoading}
-            />
+            <div ref={chatSectionRef}>
+              <ChatInterface
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                isLoading={isChatLoading}
+                serviceType={currentService}
+              />
+            </div>
           )}
 
         </div>

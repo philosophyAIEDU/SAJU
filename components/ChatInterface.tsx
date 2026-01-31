@@ -1,16 +1,59 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
+import { ChatMessage, ServiceType } from '../types';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  serviceType?: ServiceType;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading }) => {
+// 서비스 타입별 추천 질문
+const getSuggestedQuestions = (serviceType?: ServiceType): string[] => {
+  switch (serviceType) {
+    case ServiceType.BASIC:
+      return [
+        "제 성격의 장단점을 더 자세히 알려주세요",
+        "올해 조심해야 할 점이 있을까요?",
+        "저에게 맞는 행운의 색깔과 숫자는?",
+        "건강 관리에서 특히 신경 써야 할 부분은?"
+      ];
+    case ServiceType.COMPATIBILITY:
+      return [
+        "서로 갈등이 생기면 어떻게 해결하면 좋을까요?",
+        "상대방과 잘 맞는 점과 조심해야 할 점은?",
+        "우리 관계를 더 좋게 만드는 방법은?",
+        "서로에게 도움이 되는 역할 분담이 있을까요?"
+      ];
+    case ServiceType.FORTUNE:
+      return [
+        "이 해에 특히 좋은 달은 언제인가요?",
+        "재물운을 높이는 방법이 있을까요?",
+        "올해 피해야 할 것들이 있나요?",
+        "중요한 결정은 언제 하면 좋을까요?"
+      ];
+    case ServiceType.CAREER:
+      return [
+        "제가 피해야 할 직종이 있을까요?",
+        "창업과 취업 중 어느 쪽이 더 맞을까요?",
+        "직장에서 성공하려면 어떤 점을 개선해야 할까요?",
+        "부업이나 투자는 저에게 맞을까요?"
+      ];
+    default:
+      return [
+        "내년 운세가 어떨까요?",
+        "저에게 맞는 색깔은 무엇인가요?",
+        "재물운을 높이는 방법이 있을까요?",
+        "건강 관리에서 주의할 점은?"
+      ];
+  }
+};
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading, serviceType }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestedQuestions = getSuggestedQuestions(serviceType);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,12 +95,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-stone-50/50 scroll-smooth">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-4 opacity-80">
+          <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-6">
             <svg className="w-16 h-16 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
             <div className="text-center">
-              <p className="font-serif text-lg text-stone-600 mb-2">무엇이 궁금하신가요?</p>
-              <p className="text-sm">"내년 재물운이 어떨까요?"</p>
-              <p className="text-sm">"저에게 맞는 색깔은 무엇인가요?"</p>
+              <p className="font-serif text-lg text-stone-600 mb-4">무엇이 궁금하신가요?</p>
+              <p className="text-sm text-stone-500 mb-4">아래 질문을 클릭하거나 직접 입력해보세요</p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-md">
+                {suggestedQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => onSendMessage(question)}
+                    disabled={isLoading}
+                    className="px-4 py-2 text-sm bg-white border border-amber-300 text-amber-800 rounded-full hover:bg-amber-50 hover:border-amber-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
