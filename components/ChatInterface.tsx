@@ -89,7 +89,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
            </div>
         </div>
         <div className="bg-amber-900/50 text-[10px] px-2 py-1 rounded border border-amber-700/50 text-amber-200">
-            Gemini Pro 3
+            Gemini 3.8 Flash
         </div>
       </div>
 
