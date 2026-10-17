@@ -174,7 +174,7 @@ const App: React.FC = () => {
              </div>
              <div>
                <h1 className="text-2xl font-serif font-bold tracking-wide">AI 사주팔자 분석 팀</h1>
-               <p className="text-xs text-stone-400 font-light">Gemini Pro 3가 분석하는 당신의 운명</p>
+               <p className="text-xs text-stone-400 font-light">Gemini 3.8 Flash가 분석하는 당신의 운명</p>
              </div>
           </div>
         </div>
