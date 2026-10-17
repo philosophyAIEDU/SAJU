@@ -5,6 +5,12 @@ import { createStructurePrompt, createElementPrompt, createCoachPrompt } from ".
 // Helper to clean response text
 const cleanText = (text: string | undefined) => text || "분석 결과를 생성하지 못했습니다.";
 
+// Helper to append the underlying API error to a user-facing message
+const withDetail = (message: string, error: unknown) => {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `${message} (${detail.slice(0, 200)})`;
+};
+
 // Helper to create Gemini client
 const createClient = (apiKey: string) => new GoogleGenAI({ apiKey });
 
@@ -29,7 +35,7 @@ export const analyzeStructure = async (
     if (error instanceof Error && error.message.includes('API_KEY')) {
       throw new Error("API Key가 유효하지 않습니다. 올바른 키를 입력해주세요.");
     }
-    throw new Error("사주 구조 분석 중 오류가 발생했습니다.");
+    throw new Error(withDetail("사주 구조 분석 중 오류가 발생했습니다.", error));
   }
 };
 
@@ -55,7 +61,7 @@ export const analyzeElements = async (
     if (error instanceof Error && error.message.includes('API_KEY')) {
       throw new Error("API Key가 유효하지 않습니다. 올바른 키를 입력해주세요.");
     }
-    throw new Error("음양오행 분석 중 오류가 발생했습니다.");
+    throw new Error(withDetail("음양오행 분석 중 오류가 발생했습니다.", error));
   }
 };
 
@@ -72,16 +78,13 @@ export const finalizeFortune = async (
   const prompt = createCoachPrompt(serviceType, inputData, combinedPreviousAnalysis);
 
   try {
-    // Requested to use Gemini Pro 3
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3.8-flash',
       contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 1024 }
-      }
     });
     return cleanText(response.text);
   } catch (error) {
+    console.error("Final Coaching Error:", error);
     // Fallback logic
     try {
       const fallbackResponse = await ai.models.generateContent({
@@ -93,7 +96,7 @@ export const finalizeFortune = async (
       if (fallbackError instanceof Error && fallbackError.message.includes('API_KEY')) {
         throw new Error("API Key가 유효하지 않습니다. 올바른 키를 입력해주세요.");
       }
-      throw new Error("최종 운세 종합 중 오류가 발생했습니다.");
+      throw new Error(withDetail("최종 운세 종합 중 오류가 발생했습니다.", fallbackError));
     }
   }
 };
@@ -139,6 +142,6 @@ export const sendChatMessage = async (chat: Chat, message: string): Promise<stri
     return cleanText(response.text);
   } catch (error) {
     console.error("Chat Error:", error);
-    throw new Error("답변을 생성하는 중 오류가 발생했습니다.");
+    throw new Error(withDetail("답변을 생성하는 중 오류가 발생했습니다.", error));
   }
 };
