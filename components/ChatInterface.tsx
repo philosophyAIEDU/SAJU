@@ -6,6 +6,7 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   serviceType?: ServiceType;
+  onClearHistory?: () => void;
 }
 
 // 서비스 타입별 추천 질문
@@ -49,7 +50,7 @@ const getSuggestedQuestions = (serviceType?: ServiceType): string[] => {
   }
 };
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading, serviceType }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading, serviceType, onClearHistory }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -88,8 +89,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
              <p className="text-xs text-amber-200/80">당신의 운명에 대해 대화해보세요</p>
            </div>
         </div>
-        <div className="bg-amber-900/50 text-[10px] px-2 py-1 rounded border border-amber-700/50 text-amber-200">
-            Gemini 3.8 Flash
+        <div className="flex flex-col items-end gap-1">
+          <div className="bg-amber-900/50 text-[10px] px-2 py-1 rounded border border-amber-700/50 text-amber-200">
+              Gemini 3.8 Flash
+          </div>
+          {onClearHistory && messages.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearHistory}
+              disabled={isLoading}
+              className="text-[11px] text-amber-200/70 hover:text-amber-100 underline disabled:opacity-50"
+            >
+              대화 기록 지우기
+            </button>
+          )}
         </div>
       </div>
 
