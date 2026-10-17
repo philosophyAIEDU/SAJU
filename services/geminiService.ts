@@ -124,12 +124,11 @@ export const createChatSession = (apiKey: string, initialContext: string): Chat 
     5. 사용자의 고민을 공감해주고, 실질적인 해결책을 사주풀이와 연결하여 제시하세요.
   `;
 
-  // Use Gemini 3.8 Flash for follow-up chat interactions with a small thinking budget for reasoning
+  // Use Gemini 3.8 Flash for follow-up chat interactions
   return ai.chats.create({
     model: 'gemini-3.8-flash',
     config: {
       systemInstruction: systemInstruction,
-      thinkingConfig: { thinkingBudget: 512 }
     },
   });
 };
