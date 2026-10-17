@@ -156,8 +156,9 @@ const App: React.FC = () => {
     try {
       const response = await sendChatMessage(chatSessionRef.current, text);
       setChatMessages(prev => [...prev, { role: 'model', text: response }]);
-    } catch (err) {
-      setChatMessages(prev => [...prev, { role: 'model', text: "죄송합니다. 오류가 발생하여 답변을 드릴 수 없습니다." }]);
+    } catch (err: any) {
+      const detail = err?.message ? `\n\n${err.message}` : "";
+      setChatMessages(prev => [...prev, { role: 'model', text: `죄송합니다. 오류가 발생하여 답변을 드릴 수 없습니다.${detail}` }]);
     } finally {
       setIsChatLoading(false);
     }
