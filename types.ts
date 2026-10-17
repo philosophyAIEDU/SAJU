@@ -44,4 +44,12 @@ export interface AnalysisResult {
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  isError?: boolean;
+}
+
+// Saved analysis + chat for one service type, persisted in localStorage
+export interface SavedSession {
+  finalResult: string;
+  chatContext: string;
+  chatMessages: ChatMessage[];
 }

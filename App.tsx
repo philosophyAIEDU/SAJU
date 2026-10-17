@@ -1,14 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat } from "@google/genai";
-import { ServiceType, UserInput, WorkflowStep, ChatMessage } from './types';
+import { ServiceType, UserInput, WorkflowStep, ChatMessage, SavedSession } from './types';
 import InputForm from './components/InputForm';
 import ProgressSteps from './components/ProgressSteps';
 import ResultDisplay from './components/ResultDisplay';
 import ChatInterface from './components/ChatInterface';
 import { analyzeStructure, analyzeElements, finalizeFortune, createChatSession, sendChatMessage } from './services/geminiService';
 
-// LocalStorage key for API key
+// LocalStorage keys
 const API_KEY_STORAGE_KEY = 'saju_gemini_api_key';
+const INPUT_STORAGE_KEY = 'saju_input_data';
+const SERVICE_STORAGE_KEY = 'saju_current_service';
+const sessionStorageKey = (service: ServiceType) => `saju_session_${service}`;
+
+const loadJSON = <T,>(key: string): T | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveJSON = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage full or unavailable: keep working without persistence
+  }
+};
 
 // Icons
 const IconYinYang = () => (
@@ -31,15 +51,18 @@ const App: React.FC = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [isApiKeySet, setIsApiKeySet] = useState(false);
 
-  const [currentService, setCurrentService] = useState<ServiceType>(ServiceType.BASIC);
-  const [inputData, setInputData] = useState<UserInput>({
+  const [currentService, setCurrentService] = useState<ServiceType>(
+    () => loadJSON<ServiceType>(SERVICE_STORAGE_KEY) ?? ServiceType.BASIC
+  );
+  const [inputData, setInputData] = useState<UserInput>(() => ({
     birthDate: '',
     birthTime: '12:00',
     isTimeUnknown: false,
     gender: '남성',
     calendarType: '양력',
     targetYear: new Date().getFullYear(),
-  });
+    ...loadJSON<UserInput>(INPUT_STORAGE_KEY),
+  }));
 
   const [isLoading, setIsLoading] = useState(false);
   const [finalResult, setFinalResult] = useState<string>('');
@@ -55,6 +78,7 @@ const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatSessionRef = useRef<Chat | null>(null);
+  const chatContextRef = useRef<string>('');
   const chatSectionRef = useRef<HTMLDivElement>(null);
 
   // 채팅 섹션으로 스크롤
@@ -70,6 +94,45 @@ const App: React.FC = () => {
       setIsApiKeySet(true);
     }
   }, []);
+
+  // Remember birth info and selected tab so they don't need to be re-entered
+  useEffect(() => saveJSON(INPUT_STORAGE_KEY, inputData), [inputData]);
+  useEffect(() => saveJSON(SERVICE_STORAGE_KEY, currentService), [currentService]);
+
+  // Restore the saved analysis and chat history for the selected service
+  useEffect(() => {
+    const saved = loadJSON<SavedSession>(sessionStorageKey(currentService));
+    chatSessionRef.current = null;
+    chatContextRef.current = saved?.chatContext ?? '';
+    setFinalResult(saved?.finalResult ?? '');
+    setChatMessages(saved?.chatMessages ?? []);
+    setSteps(prev => prev.map(s => ({ ...s, status: saved?.finalResult ? 'completed' : 'pending' })));
+  }, [currentService]);
+
+  // Recreate the chat session (with its history) once the API key and saved context are available
+  useEffect(() => {
+    if (!chatSessionRef.current && apiKey && isApiKeySet && chatContextRef.current) {
+      chatSessionRef.current = createChatSession(apiKey, chatContextRef.current, chatMessages);
+    }
+  }, [apiKey, isApiKeySet, finalResult, chatMessages]);
+
+  // Persist the analysis and chat history whenever they change
+  useEffect(() => {
+    if (!finalResult) return;
+    saveJSON(sessionStorageKey(currentService), {
+      finalResult,
+      chatContext: chatContextRef.current,
+      chatMessages,
+    } as SavedSession);
+  }, [finalResult, chatMessages]);
+
+  const handleClearChat = () => {
+    if (!window.confirm('이 분석의 대화 기록을 지울까요?')) return;
+    setChatMessages([]);
+    chatSessionRef.current = apiKey && chatContextRef.current
+      ? createChatSession(apiKey, chatContextRef.current)
+      : null;
+  };
 
   const handleSaveApiKey = () => {
     if (apiKey.trim()) {
@@ -91,11 +154,7 @@ const App: React.FC = () => {
 
   const handleServiceChange = (service: ServiceType) => {
     setCurrentService(service);
-    setFinalResult('');
     setError(null);
-    setSteps(steps.map(s => ({ ...s, status: 'pending' })));
-    setChatMessages([]);
-    chatSessionRef.current = null;
   };
 
   const startAnalysis = async () => {
@@ -130,13 +189,10 @@ const App: React.FC = () => {
       const finalResultText = await finalizeFortune(apiKey, currentService, inputData, fullContext);
       updateStepStatus(3, 'completed');
 
-      setFinalResult(finalResultText);
-
       // Initialize Chat Session with full context including final result
-      chatSessionRef.current = createChatSession(
-        apiKey,
-        `=== 구조/오행 분석 ===\n${fullContext}\n\n=== 최종 종합 분석 ===\n${finalResultText}`
-      );
+      chatContextRef.current = `=== 구조/오행 분석 ===\n${fullContext}\n\n=== 최종 종합 분석 ===\n${finalResultText}`;
+      chatSessionRef.current = createChatSession(apiKey, chatContextRef.current);
+      setFinalResult(finalResultText);
 
     } catch (err: any) {
       setError(err.message || "분석 중 알 수 없는 오류가 발생했습니다.");
@@ -158,7 +214,7 @@ const App: React.FC = () => {
       setChatMessages(prev => [...prev, { role: 'model', text: response }]);
     } catch (err: any) {
       const detail = err?.message ? `\n\n${err.message}` : "";
-      setChatMessages(prev => [...prev, { role: 'model', text: `죄송합니다. 오류가 발생하여 답변을 드릴 수 없습니다.${detail}` }]);
+      setChatMessages(prev => [...prev, { role: 'model', text: `죄송합니다. 오류가 발생하여 답변을 드릴 수 없습니다.${detail}`, isError: true }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -338,6 +394,7 @@ const App: React.FC = () => {
                 onSendMessage={handleSendMessage}
                 isLoading={isChatLoading}
                 serviceType={currentService}
+                onClearHistory={handleClearChat}
               />
             </div>
           )}

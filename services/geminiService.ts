@@ -1,5 +1,5 @@
 import { GoogleGenAI, Chat } from "@google/genai";
-import { ServiceType, UserInput } from "../types";
+import { ServiceType, UserInput, ChatMessage } from "../types";
 import { createStructurePrompt, createElementPrompt, createCoachPrompt } from "./prompts";
 
 // Helper to clean response text
@@ -105,7 +105,11 @@ export const finalizeFortune = async (
 // Chat Capabilities
 // ==========================================
 
-export const createChatSession = (apiKey: string, initialContext: string): Chat => {
+export const createChatSession = (
+  apiKey: string,
+  initialContext: string,
+  previousMessages: ChatMessage[] = []
+): Chat => {
   if (!apiKey) throw new Error("API Key가 입력되지 않았습니다.");
 
   const ai = createClient(apiKey);
@@ -127,12 +131,18 @@ export const createChatSession = (apiKey: string, initialContext: string): Chat 
     5. 사용자의 고민을 공감해주고, 실질적인 해결책을 사주풀이와 연결하여 제시하세요.
   `;
 
+  // Restore earlier turns, skipping failed exchanges (error reply and the question before it)
+  const history = previousMessages
+    .filter((m, i, all) => !m.isError && !(m.role === 'user' && all[i + 1]?.isError))
+    .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+
   // Use Gemini 3.8 Flash for follow-up chat interactions
   return ai.chats.create({
     model: 'gemini-3.8-flash',
     config: {
       systemInstruction: systemInstruction,
     },
+    history,
   });
 };
 
